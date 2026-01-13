@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Geometric Fractal Gallery</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
     <style>
         :root {
             --bg: #030303;
@@ -35,6 +36,42 @@
             padding: 2rem 1.5rem;
             box-sizing: border-box;
             z-index: 100;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .sidebar.collapsed {
+            width: 80px;
+            padding: 2rem 0.75rem;
+        }
+
+        #sidebar-toggle {
+            position: absolute;
+            top: 2rem;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background: #111;
+            border: 1px solid var(--glass-border);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            z-index: 101;
+            transition: all 0.3s ease;
+        }
+
+        #sidebar-toggle:hover {
+            background: var(--accent);
+            color: black;
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        .sidebar.collapsed #sidebar-toggle {
+            transform: rotate(180deg);
         }
 
         h1 {
@@ -45,6 +82,14 @@
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
+            white-space: nowrap;
+            overflow: hidden;
+            transition: opacity 0.2s ease;
+        }
+
+        .sidebar.collapsed h1 {
+            opacity: 0;
+            width: 0;
         }
 
         .pattern-list {
@@ -53,6 +98,11 @@
             margin: 0;
             flex-grow: 1;
             overflow-y: auto;
+            scrollbar-width: none; /* Firefox */
+        }
+
+        .pattern-list::-webkit-scrollbar {
+            display: none; /* Chrome/Safari */
         }
 
         .pattern-item {
@@ -129,6 +179,44 @@
             padding-top: 0.5rem;
         }
 
+        .sidebar.collapsed .category-header {
+            justify-content: center;
+            padding: 0.8rem 0;
+            background: transparent;
+            border-color: transparent;
+        }
+
+        .sidebar.collapsed .category-header span:not(.material-symbols-outlined),
+        .sidebar.collapsed .category-header::after {
+            display: none;
+        }
+
+        .sidebar.collapsed .category-header .material-symbols-outlined {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .category.open .category-header .material-symbols-outlined {
+            color: var(--accent);
+        }
+
+        .sidebar.collapsed .pattern-item {
+            text-align: center;
+            padding: 0.8rem 0;
+            font-size: 0;
+        }
+
+        .sidebar.collapsed .pattern-item::before {
+            display: none;
+        }
+
+        .category-header .material-symbols-outlined {
+            font-size: 1.2rem;
+            margin-right: 0.75rem;
+            transition: color 0.3s ease;
+        }
+
         /* Main View */
         .viewport {
             flex-grow: 1;
@@ -201,11 +289,58 @@
             font-size: 0.75rem;
             color: rgba(255, 255, 255, 0.4);
             max-width: 200px;
+            margin-bottom: 1rem;
+        }
+
+        .info-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .info-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .formula-box {
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.5rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #fff;
+            word-break: break-all;
+        }
+
+        .graph-placeholder {
+            width: 150px;
+            height: 100px;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.05),
+                rgba(255, 255, 255, 0.05) 10px,
+                rgba(255, 255, 255, 0.02) 10px,
+                rgba(255, 255, 255, 0.02) 20px
+            );
+            border: 1px dashed var(--glass-border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
         }
     </style>
 </head>
 <body>
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
+        <button id="sidebar-toggle">
+            <span class="material-symbols-outlined">chevron_left</span>
+        </button>
         <h1>Fractal Gallery</h1>
         <ul class="pattern-list" id="pattern-list">
             <!-- Patterns will be injected here -->
@@ -218,6 +353,11 @@
         <div class="stats-overlay">
             <div class="stats-title" id="p-name">Pythagoras Tree</div>
             <div class="stats-desc" id="p-desc">A fractal of squares named after the mathematician Pythagoras.</div>
+            
+            <div class="info-section">
+                <span class="info-label">Formula</span>
+                <div class="formula-box" id="p-formula">z² + c</div>
+            </div>
         </div>
 
         <div class="controls">
@@ -242,17 +382,29 @@
         const angleVal = document.getElementById('angle-val');
         const pName = document.getElementById('p-name');
         const pDesc = document.getElementById('p-desc');
+        const pFormula = document.getElementById('p-formula');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebar-toggle');
 
         let currentPattern = 'pythagoras';
         let depth = 8;
         let angle = 45;
+
+        // Camera State
+        let camZoom = 1.0;
+        let camX = 0;
+        let camY = 0;
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
 
         const patterns = {
             pythagoras: {
                 name: "Pythagoras Tree",
                 category: "Classic Fractals",
                 desc: "Squares that branch out based on the Pythagorean theorem.",
-                minDepth: 0, maxDepth: 12, defaultDepth: 8,
+                formula: "a² + b = c² (Recursive Squares)",
+                minDepth: 0, maxDepth: 20, defaultDepth: 8,
                 draw: (depth, angle) => {
                     const side = Math.min(canvas.width, canvas.height) * 0.15;
                     drawSquare(canvas.width/2 - side/2, canvas.height - 100, side, 0, depth, angle);
@@ -262,6 +414,7 @@
                 name: "T-Square",
                 category: "Grids & Subdivisions",
                 desc: "Squares centered at the corners of their parent.",
+                formula: "f(n+1) = s/2 at four corners",
                 minDepth: 0, maxDepth: 7, defaultDepth: 5,
                 draw: (depth) => {
                     const side = Math.min(canvas.width, canvas.height) * 0.4;
@@ -272,6 +425,7 @@
                 name: "H-Tree",
                 category: "Classic Fractals",
                 desc: "Recursive line segments connected to form the letter 'H'.",
+                formula: "L = L/√2 per iteration",
                 minDepth: 0, maxDepth: 10, defaultDepth: 6,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.4;
@@ -282,6 +436,7 @@
                 name: "Box Fractal",
                 category: "Grids & Subdivisions",
                 desc: "Subdivided squares forming a cross-like grid pattern.",
+                formula: "5^n squares subdivision",
                 minDepth: 0, maxDepth: 6, defaultDepth: 4,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.7;
@@ -292,6 +447,7 @@
                 name: "Sierpiński Triangle",
                 category: "Classic Fractals",
                 desc: "A triangle subdivided into smaller equilateral triangles.",
+                formula: "3^n triangles subdivision",
                 minDepth: 0, maxDepth: 9, defaultDepth: 7,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.8;
@@ -303,6 +459,7 @@
                 name: "Koch Snowflake",
                 category: "Classic Fractals",
                 desc: "A closed curve formed by infinite inward/outward spikes.",
+                formula: "L = (4/3)^n perimeter",
                 minDepth: 0, maxDepth: 6, defaultDepth: 4,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.7;
@@ -318,6 +475,7 @@
                 name: "Fractal Tree",
                 category: "Classic Fractals",
                 desc: "The classic branching structure of organic natural trees.",
+                formula: "2^n branching with sin/cos",
                 minDepth: 0, maxDepth: 13, defaultDepth: 10,
                 draw: (depth, angle) => {
                     const len = canvas.height * 0.25;
@@ -328,6 +486,7 @@
                 name: "Binary Tree",
                 category: "Classic Fractals",
                 desc: "Perfectly symmetrical binary splits at fixed angles.",
+                formula: "θ = ±30°, L = 0.7L",
                 minDepth: 0, maxDepth: 20, defaultDepth: 8,
                 draw: (depth) => {
                     drawBinary(canvas.width/2, canvas.height - 100, canvas.height * 0.2, -90, depth);
@@ -337,6 +496,7 @@
                 name: "Hilbert Curve",
                 category: "Curves & L-Systems",
                 desc: "A space-filling continuous fractal line.",
+                formula: "L-System: A, B substitutions",
                 minDepth: 0, maxDepth: 7, defaultDepth: 5,
                 draw: (depth) => {
                     if (depth === 0) return;
@@ -356,6 +516,7 @@
                 name: "Recursive Mondrian",
                 category: "Grids & Subdivisions",
                 desc: "Randomized rectangular subdivisions in primary colors.",
+                formula: "Random Split P(x,y)",
                 minDepth: 0, maxDepth: 7, defaultDepth: 4,
                 draw: (depth) => {
                     const w = canvas.width * 0.6;
@@ -367,6 +528,7 @@
                 name: "Vicsek Fractal",
                 category: "Grids & Subdivisions",
                 desc: "A cross-based subdivision of a square grid.",
+                formula: "Cross Replacement r=1/3",
                 minDepth: 0, maxDepth: 6, defaultDepth: 4,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.7;
@@ -377,6 +539,7 @@
                 name: "Recursive Hexagon",
                 category: "Grids & Subdivisions",
                 desc: "Star-like patterns branching from a central hexagon.",
+                formula: "6^n satellite hulls",
                 minDepth: 0, maxDepth: 6, defaultDepth: 4,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.15;
@@ -387,6 +550,7 @@
                 name: "Cantor Set",
                 category: "Grids & Subdivisions",
                 desc: "Middle-third removal from line segments, repeated infinitely.",
+                formula: "C = C/3 ∪ (C/3 + 2/3)",
                 minDepth: 0, maxDepth: 8, defaultDepth: 5,
                 draw: (depth) => {
                     const w = canvas.width * 0.8;
@@ -398,6 +562,7 @@
                 name: "Dragon Curve",
                 category: "Curves & L-Systems",
                 desc: "A paper-folding fractal that creates a complex dragon-like path.",
+                formula: "(1+i)^n (Iterative folding)",
                 minDepth: 0, maxDepth: 14, defaultDepth: 10,
                 draw: (depth) => {
                     if (depth === 0) return;
@@ -412,6 +577,7 @@
                 name: "Lévy C Curve",
                 category: "Curves & L-Systems",
                 desc: "A self-similar fractal curve formed by 45-degree rotations.",
+                formula: "L(n) = f1(L(n-1)) + f2(L(n-1))",
                 minDepth: 0, maxDepth: 14, defaultDepth: 10,
                 draw: (depth) => {
                     if (depth === 0) return;
@@ -426,7 +592,9 @@
                 name: "Barnsley Fern",
                 category: "Space & Nature",
                 desc: "A stochastic fractal resembling a natural spleenwort leaf.",
+                formula: "f(x,y) = Affine Transforms",
                 minDepth: 100, maxDepth: 20000, defaultDepth: 10000,
+                isPixel: true,
                 draw: (depth) => {
                     drawBarnsley(depth);
                 }
@@ -435,7 +603,9 @@
                 name: "Mandelbrot Set",
                 category: "Complex & Sets",
                 desc: "The most famous fractal, visualized via complex number escape times.",
+                formula: "z(n+1) = z(n)² + c",
                 minDepth: 0, maxDepth: 1000, defaultDepth: 100,
+                isPixel: true,
                 draw: (depth) => {
                     drawMandelbrot(depth);
                 }
@@ -444,7 +614,9 @@
                 name: "Julia Set",
                 category: "Complex & Sets",
                 desc: "A holomorphic fractal related to the Mandelbrot set.",
+                formula: "z(n+1) = z(n)² + fixed c",
                 minDepth: 0, maxDepth: 10000, defaultDepth: 100,
+                isPixel: true,
                 draw: (depth) => {
                     drawJulia(depth);
                 }
@@ -453,26 +625,20 @@
                 name: "Sierpiński Carpet",
                 category: "Grids & Subdivisions",
                 desc: "A square based version of the Sierpiński triangle.",
+                formula: "8^n squares subdivision",
                 minDepth: 0, maxDepth: 5, defaultDepth: 4,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.7;
                     drawCarpet(canvas.width/2 - size/2, canvas.height/2 - size/2, size, depth);
                 }
             },
-            newton: {
-                name: "Newton Fractal",
-                category: "Complex & Sets",
-                desc: "The basins of attraction for solutions to z^3 - 1 = 0.",
-                minDepth: 1, maxDepth: 40, defaultDepth: 20,
-                draw: (depth) => {
-                    drawNewton(depth);
-                }
-            },
             bifurcation: {
                 name: "Bifurcation Diagram",
                 category: "Complex & Sets",
                 desc: "Visualizing the route to chaos in the logistic map.",
+                formula: "x(n+1) = r * x(n) * (1 - x(n))",
                 minDepth: 100, maxDepth: 1000, defaultDepth: 500,
+                isPixel: true,
                 draw: (depth) => {
                     drawBifurcation(depth);
                 }
@@ -481,7 +647,9 @@
                 name: "Pascal (Mod 2)",
                 category: "Complex & Sets",
                 desc: "Pascal's triangle colors by parity, revealing a Sierpinski structure.",
+                formula: "nCr mod 2",
                 minDepth: 1, maxDepth: 128, defaultDepth: 64,
+                isPixel: true,
                 draw: (depth) => {
                     drawPascal(depth);
                 }
@@ -490,7 +658,9 @@
                 name: "De Jong Attractor",
                 category: "Complex & Sets",
                 desc: "A chaotic strange attractor generated by recursive feedback.",
+                formula: "sin(ay)-cos(bx), sin(cx)-cos(dy)",
                 minDepth: 1000, maxDepth: 100000, defaultDepth: 50000,
+                isPixel: true,
                 draw: (depth) => {
                     drawDeJong(depth);
                 }
@@ -499,6 +669,7 @@
                 name: "Peano Curve",
                 category: "Curves & L-Systems",
                 desc: "A classic space-filling curve that tiles a plane.",
+                formula: "f1...f9 recursive tiling",
                 minDepth: 1, maxDepth: 5, defaultDepth: 3,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.8;
@@ -512,6 +683,7 @@
                 name: "Sierpinski Pyramid",
                 category: "Grids & Subdivisions",
                 desc: "A 2D projection of the 3D Sierpinski tetrahedron.",
+                formula: "4^n tetrahedron scaling",
                 minDepth: 0, maxDepth: 7, defaultDepth: 5,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.6;
@@ -522,6 +694,7 @@
                 name: "Cross Fractal",
                 category: "Grids & Subdivisions",
                 desc: "Recursive cross subdivision shaping a geometric square.",
+                formula: "Grid subdivision (Cross r=1/3)",
                 minDepth: 0, maxDepth: 6, defaultDepth: 4,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.7;
@@ -532,24 +705,17 @@
                 name: "Nebula Cloud",
                 category: "Space & Nature",
                 desc: "Recursive misty circles simulating deep space gas clouds.",
+                formula: "Gaussian Radius Jitter",
                 minDepth: 0, maxDepth: 8, defaultDepth: 5,
                 draw: (depth) => {
                     drawNebula(canvas.width/2, canvas.height/2, canvas.width*0.3, depth);
-                }
-            },
-            galaxy: {
-                name: "Galactic Spiral",
-                category: "Space & Nature",
-                desc: "Logarithmic recursive spiral with glowing star particles.",
-                minDepth: 0, maxDepth: 10, defaultDepth: 6,
-                draw: (depth) => {
-                    drawGalaxy(canvas.width/2, canvas.height/2, 2, 0, depth * 50);
                 }
             },
             web: {
                 name: "Cosmic Web",
                 category: "Space & Nature",
                 desc: "Large-scale node connections forming a universal filament structure.",
+                formula: "Iterative Node Linking",
                 minDepth: 0, maxDepth: 6, defaultDepth: 4,
                 draw: (depth) => {
                     drawWeb(canvas.width/2, canvas.height/2, canvas.width*0.4, depth);
@@ -559,6 +725,7 @@
                 name: "Star Cluster",
                 category: "Space & Nature",
                 desc: "Dense grouping of recursive glowing stars in the void.",
+                formula: "Stochastic Node Jitter",
                 minDepth: 0, maxDepth: 7, defaultDepth: 5,
                 draw: (depth) => {
                     drawCluster(canvas.width/2, canvas.height/2, canvas.width*0.35, depth);
@@ -568,25 +735,19 @@
                 name: "Event Horizon",
                 category: "Space & Nature",
                 desc: "A warped recursive grid spiraling into a central singularity.",
+                formula: "Perspective Warp 1/r",
                 minDepth: 0, maxDepth: 100, defaultDepth: 40,
                 draw: (depth) => {
                     drawHorizon(canvas.width/2, canvas.height/2, canvas.width*0.4, depth);
-                }
-            },
-            apollonian: {
-                name: "Apollonian Gasket",
-                category: "Cool Stuffs",
-                desc: "Mutually tangent circles forming a recursive gasket.",
-                minDepth: 1, maxDepth: 6, defaultDepth: 4,
-                draw: (depth) => {
-                    drawApollonian(depth);
                 }
             },
             lorenz: {
                 name: "Lorenz Attractor",
                 category: "Cool Stuffs",
                 desc: "A chaotic system of differential equations.",
+                formula: "σ(y-x), x(ρ-z)-y, xy-βz",
                 minDepth: 500, maxDepth: 10000, defaultDepth: 5000,
+                isPixel: true,
                 draw: (depth) => {
                     drawLorenz(depth);
                 }
@@ -595,6 +756,7 @@
                 name: "Menger Sponge (2D)",
                 category: "Cool Stuffs",
                 desc: "A square based fractal with recursive square removal.",
+                formula: "f(n+1) = s/3 (8 sub-squares)",
                 minDepth: 0, maxDepth: 5, defaultDepth: 3,
                 draw: (depth) => {
                     const size = Math.min(canvas.width, canvas.height) * 0.7;
@@ -856,7 +1018,10 @@
 
         function drawBarnsley(depth) {
             let x = 0, y = 0;
+            const w = canvas.width, h = canvas.height;
             ctx.fillStyle = '#00ff88';
+            const centerX = w / 2 + camX;
+            const centerY = h - 20 + camY;
             for(let i=0; i<depth; i++) {
                 const r = Math.random();
                 let nx, ny;
@@ -865,7 +1030,7 @@
                 else if(r < 0.93) { nx = 0.2 * x - 0.26 * y; ny = 0.23 * x + 0.22 * y + 1.6; }
                 else { nx = -0.15 * x + 0.28 * y; ny = 0.26 * x + 0.24 * y + 0.44; }
                 x = nx; y = ny;
-                ctx.fillRect(canvas.width/2 + x * 60, canvas.height - y * 60 - 20, 1, 1);
+                ctx.fillRect(centerX + x * 60 * camZoom, centerY - y * 60 * camZoom, 1, 1);
             }
         }
 
@@ -874,8 +1039,8 @@
             const w = canvas.width, h = canvas.height;
             for(let i=0; i<w; i++) {
                 for(let j=0; j<h; j++) {
-                    let cx = (i - w/2) * (4/w);
-                    let cy = (j - h/2) * (4/h);
+                    let cx = ((i - camX - w / 2) / (camZoom * w)) * 4;
+                    let cy = ((j - camY - h / 2) / (camZoom * h)) * 4;
                     let x = 0, y = 0, n = 0;
                     while(x*x + y*y <= 4 && n < iterations) {
                         let xt = x*x - y*y + cx;
@@ -895,8 +1060,8 @@
             const cx = -0.7, cy = 0.27015;
             for(let i=0; i<w; i++) {
                 for(let j=0; j<h; j++) {
-                    let zx = (i - w/2) * (3/w);
-                    let zy = (j - h/2) * (3/h);
+                    let zx = ((i - camX - w / 2) / (camZoom * w)) * 3;
+                    let zy = ((j - camY - h / 2) / (camZoom * h)) * 3;
                     let n = 0;
                     while(zx*zx + zy*zy <= 4 && n < iterations) {
                         let xt = zx*zx - zy*zy + cx;
@@ -936,8 +1101,8 @@
             const w = canvas.width, h = canvas.height;
             for(let i=0; i<w; i++) {
                 for(let j=0; j<h; j++) {
-                    let x = (i - w/2) * (4/w);
-                    let y = (j - h/2) * (4/h);
+                    let x = ((i - camX - w / 2) / (camZoom * w)) * 4;
+                    let y = ((j - camY - h / 2) / (camZoom * h)) * 4;
                     let n = 0;
                     while(n < iterations) {
                         let r2 = x*x + y*y;
@@ -960,24 +1125,30 @@
             const w = canvas.width, h = canvas.height;
             ctx.fillStyle = '#00f2ff';
             for(let i=0; i<w; i++) {
-                let r = 2.4 + (i/w) * 1.6;
+                let r = 2.4 + ((i - camX - w/2) / (w * camZoom)) * 1.6 + 0.8; // Centered mapping
+                if (r < 2.4 || r > 4.0) continue;
                 let x = 0.5;
                 for(let j=0; j<100; j++) x = r * x * (1 - x); // warmup
                 for(let j=0; j<points; j++) {
                     x = r * x * (1 - x);
-                    ctx.fillRect(i, h - x * h, 1, 1);
+                    const py = h/2 + camY - (x - 0.5) * h * camZoom;
+                    ctx.fillRect(i, py, 1, 1);
                 }
             }
         }
 
         function drawPascal(rows) {
-            const size = Math.min(canvas.width, canvas.height) / rows;
+            const w = canvas.width, h = canvas.height;
+            const baseSize = Math.min(w, h) / rows;
+            const size = baseSize * camZoom;
+            const centerX = w / 2 + camX;
+            const startY = 100 + camY;
             for(let n=0; n<rows; n++) {
                 let c = 1;
                 for(let k=0; k<=n; k++) {
                     if(c % 2 !== 0) {
                         ctx.fillStyle = '#ff0055';
-                        ctx.fillRect(canvas.width/2 - (n*size/2) + k*size, 100 + n*size, size, size);
+                        ctx.fillRect(centerX - (n*size/2) + k*size, startY + n*size, size, size);
                     }
                     c = c * (n - k) / (k + 1);
                 }
@@ -985,14 +1156,17 @@
         }
 
         function drawDeJong(points) {
+            const w = canvas.width, h = canvas.height;
             let x = 0, y = 0;
             const a = 1.4, b = -2.3, c = 2.4, d = -2.1;
             ctx.fillStyle = 'rgba(0, 242, 255, 0.1)';
+            const centerX = w / 2 + camX;
+            const centerY = h / 2 + camY;
             for(let i=0; i<points; i++) {
                 let nx = Math.sin(a * y) - Math.cos(b * x);
                 let ny = Math.sin(c * x) - Math.cos(d * y);
                 x = nx; y = ny;
-                ctx.fillRect(canvas.width/2 + x * 150, canvas.height/2 + y * 150, 1, 1);
+                ctx.fillRect(centerX + x * 150 * camZoom, centerY + y * 150 * camZoom, 1, 1);
             }
         }
 
@@ -1154,16 +1328,17 @@
             let x = 0.1, y = 0, z = 0;
             const sigma = 10, rho = 28, beta = 8/3;
             const dt = 0.01;
+            const w = canvas.width, h = canvas.height;
             ctx.beginPath();
             ctx.strokeStyle = '#00ff88';
-            ctx.lineWidth = 0.5;
+            ctx.lineWidth = 0.5 * camZoom;
             for(let i=0; i<iterations; i++) {
                 let dx = sigma * (y - x) * dt;
                 let dy = (x * (rho - z) - y) * dt;
                 let dz = (x * y - beta * z) * dt;
                 x += dx; y += dy; z += dz;
-                const px = canvas.width/2 + x * 15;
-                const py = canvas.height/2 + (y - z) * 10;
+                const px = w/2 + camX + x * 15 * camZoom;
+                const py = h/2 + camY + (y - z) * 10 * camZoom;
                 if(i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
             }
             ctx.stroke();
@@ -1189,6 +1364,15 @@
         function init() {
             resize();
             const groups = {};
+            const catIcons = {
+                "Classic Fractals": "polyline",
+                "Grids & Subdivisions": "grid_view",
+                "Curves & L-Systems": "gesture",
+                "Space & Nature": "flare",
+                "Complex & Sets": "psychology",
+                "Cool Stuffs": "auto_awesome"
+            };
+
             Object.keys(patterns).forEach(key => {
                 const cat = patterns[key].category || 'Uncategorized';
                 if (!groups[cat]) groups[cat] = [];
@@ -1202,7 +1386,17 @@
                 
                 const header = document.createElement('div');
                 header.className = 'category-header';
-                header.textContent = cat;
+                
+                const icon = document.createElement('span');
+                icon.className = 'material-symbols-outlined';
+                icon.textContent = catIcons[cat] || 'category';
+                
+                const label = document.createElement('span');
+                label.textContent = cat;
+                
+                header.appendChild(icon);
+                header.appendChild(label);
+                
                 header.onclick = () => catDiv.classList.toggle('open');
                 
                 const content = document.createElement('div');
@@ -1231,6 +1425,7 @@
             const p = patterns[key];
             pName.textContent = p.name;
             pDesc.textContent = p.desc;
+            pFormula.textContent = p.formula || 'N/A';
             
             const min = p.minDepth !== undefined ? p.minDepth : 1;
             depthSlider.min = min;
@@ -1251,7 +1446,7 @@
         }
 
         function resize() {
-            canvas.width = window.innerWidth - 300;
+            canvas.width = window.innerWidth - sidebar.offsetWidth;
             canvas.height = window.innerHeight;
             render();
         }
@@ -1264,10 +1459,18 @@
             requestAnimationFrame(() => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.save();
+                
+                const p = patterns[currentPattern];
+                if (!p.isPixel) {
+                    // Apply Camera Transform for Vector Patterns
+                    ctx.translate(camX, camY);
+                    ctx.scale(camZoom, camZoom);
+                }
+
                 ctx.currentX = undefined; ctx.currentY = undefined;
                 depthVal.textContent = depth;
                 angleVal.textContent = angle + '°';
-                patterns[currentPattern].draw(depth, angle);
+                p.draw(depth, angle);
                 ctx.restore();
                 renderPending = false;
             });
@@ -1276,6 +1479,65 @@
         depthSlider.oninput = (e) => { depth = parseInt(e.target.value); render(); };
         angleSlider.oninput = (e) => { angle = parseInt(e.target.value); render(); };
         window.onresize = resize;
+
+        // --- Interaction Handlers ---
+        
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSpeed = 0.001;
+            const delta = -e.deltaY;
+            const factor = Math.pow(1.1, delta / 100);
+            
+            // Mouse position in canvas coordinates
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Zoom relative to mouse
+            const oldZoom = camZoom;
+            camZoom *= factor;
+            
+            // Adjust offsets to keep mouse point fixed
+            camX = mouseX - (mouseX - camX) * (camZoom / oldZoom);
+            camY = mouseY - (mouseY - camY) * (camZoom / oldZoom);
+            
+            render();
+        }, { passive: false });
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            camX += dx;
+            camY += dy;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            render();
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        
+        function resetView() {
+            camZoom = 1.0;
+            camX = 0;
+            camY = 0;
+            render();
+        }
+
+        canvas.addEventListener('dblclick', resetView);
+
+        sidebarToggle.onclick = () => {
+            sidebar.classList.toggle('collapsed');
+            const icon = sidebarToggle.querySelector('.material-symbols-outlined');
+            icon.textContent = sidebar.classList.contains('collapsed') ? 'chevron_right' : 'chevron_left';
+            setTimeout(resize, 300); // Wait for transition
+        };
 
         init();
     </script>
