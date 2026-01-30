@@ -320,3 +320,5 @@ async function toggleWebcam() {
 btnToggleWebcam.onclick = toggleWebcam;
 
 init();
+// Enable Auto Run by default
+toggleAutoRun();
