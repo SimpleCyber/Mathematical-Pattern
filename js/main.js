@@ -13,6 +13,7 @@ const pFormula = document.getElementById("p-formula");
 const sidebar = document.getElementById("sidebar");
 const sidebarToggle = document.getElementById("sidebar-toggle");
 const btnAutoRun = document.getElementById("btn-auto-run");
+const btnToggleWebcam = document.getElementById("btn-toggle-webcam");
 const speedSlider = document.getElementById("auto-run-speed");
 
 let autoRunActive = false;
@@ -225,6 +226,12 @@ sidebarToggle.onclick = () => {
   setTimeout(resize, 300);
 };
 
+// Ensure icon is correct on load
+if (sidebar.classList.contains("collapsed")) {
+  const icon = sidebarToggle.querySelector(".material-symbols-outlined");
+  icon.textContent = "chevron_right";
+}
+
 function startAutoRunLoop() {
   if (autoRunTimer) clearInterval(autoRunTimer);
 
@@ -271,22 +278,45 @@ speedSlider.oninput = () => {
   if (autoRunActive) startAutoRunLoop();
 };
 
-async function initWebcam() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    const videoElement = document.getElementById("webcam-feed");
-    videoElement.srcObject = stream;
+let webcamStream = null;
 
-    const closeBtn = document.getElementById("close-webcam");
-    closeBtn.onclick = () => {
-      const container = document.getElementById("webcam-container");
-      stream.getTracks().forEach((track) => track.stop());
-      container.remove();
-    };
-  } catch (err) {
-    console.warn("Webcam access denied or error:", err);
+async function toggleWebcam() {
+  const container = document.getElementById("webcam-container");
+  const videoElement = document.getElementById("webcam-feed");
+  const icon = btnToggleWebcam.querySelector(".material-symbols-outlined");
+  const text = btnToggleWebcam.querySelector(
+    "span:not(.material-symbols-outlined)",
+  );
+
+  if (webcamStream) {
+    // Stop webcam
+    webcamStream.getTracks().forEach((track) => track.stop());
+    webcamStream = null;
+    videoElement.srcObject = null;
+    container.style.display = "none";
+    icon.textContent = "videocam_off";
+    btnToggleWebcam.classList.remove("active");
+  } else {
+    // Start webcam
+    try {
+      webcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      videoElement.srcObject = webcamStream;
+      container.style.display = "block";
+      icon.textContent = "videocam";
+      btnToggleWebcam.classList.add("active");
+
+      // Re-bind close button
+      const closeBtn = document.getElementById("close-webcam");
+      closeBtn.onclick = () => {
+        toggleWebcam(); // Reuse toggle logic to close
+      };
+    } catch (err) {
+      console.warn("Webcam access denied or error:", err);
+      alert("Could not access webcam. Please check permissions.");
+    }
   }
 }
 
+btnToggleWebcam.onclick = toggleWebcam;
+
 init();
-initWebcam();
